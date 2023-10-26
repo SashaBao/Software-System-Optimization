@@ -1,0 +1,42 @@
+Combination: blocksize = 64, opt_level = O3
+Average run time: 36.0214
+Combination: blocksize = 128, opt_level = O1
+Average run time: 64.0348
+Combination: blocksize = 64, opt_level = O2
+Average run time: 70.6889
+Combination: blocksize = 16, opt_level = O1
+Average run time: 77.4774
+Combination: blocksize = 128, opt_level = O3
+Average run time: 34.3742
+Combination: blocksize = 8, opt_level = O3
+Average run time: 89.1279
+Combination: blocksize = 8, opt_level = O1
+Average run time: 96.9808
+Combination: blocksize = 32, opt_level = O3
+Average run time: 51.3744
+Combination: blocksize = 16, opt_level = O3
+Average run time: 72.3688
+Combination: blocksize = 8, opt_level = O2
+Average run time: 100.9658
+Combination: blocksize = 32, opt_level = O2
+Average run time: 82.9473
+Combination: blocksize = 32, opt_level = O0
+Average run time: 345.5399
+Combination: blocksize = 16, opt_level = O2
+Average run time: 86.2911
+Combination: blocksize = 64, opt_level = O0
+Average run time: 333.6155
+Combination: blocksize = 64, opt_level = O1
+Average run time: 77.0966
+Combination: blocksize = 128, opt_level = O2
+Average run time: 68.7342
+Combination: blocksize = 8, opt_level = O0
+Average run time: 446.0914
+Combination: blocksize = 16, opt_level = O0
+Average run time: 356.4959
+Combination: blocksize = 32, opt_level = O1
+Average run time: 78.464
+Combination: blocksize = 128, opt_level = O0
+Average run time: 324.3588
+Best combination: 128 O3
+Best average run time: 34.3742
