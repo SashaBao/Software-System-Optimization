@@ -63,7 +63,7 @@ seta %al
 这里是说如果-0x1c(%rbp)指向的值小于eax，那么就将al置为1。而根据前面的汇编，-0x1c(%rbp)指向的值是left\[1\]，eax中的值是left\[0\]（前面的汇编代码有点复杂，我就不详细分析了）。也就是说，耗时最长的这两行代码，代表的恰好就是isort.c中的:
 
 ```c
-while (index &gt;= left &amp;&amp; *index &gt; val) {
+while (index >= left && *index > val) {
 ```
 
 性能瓶颈也就找到了。
@@ -360,7 +360,11 @@ DEBUG=0的时候，优化等级是O3；而DEBUG=1的时候，优化等级是O0�
 
 接下来我来解释下使用指令数代替时间来作为评价程序性能的优劣。我们先要明确，本题中的指令总数指的是动态指令总数还是静态指令总数？静态指令总数指的是程序自身所拥有的指令条数，而动态指令总数是程序在运行的时候实际执行的指令数。这两者未必是相等的，因为静态指令可能会包含一个循环，而这个循环中的每一条指令都会执行很多次。本题中的指令总数应该是动态指令总数吧，因为valgrind的输出结果中的I refs是在运行过程中测量的。
 
-程序的运行过程中可能会包含对IO的访问。而一旦涉及到IO，就可能会出现各种各样的不稳定因素，导致测试结果出现误差。而CPU time = Instruction count x CPI / clock rate。CPI是每条指令所花的时钟周期数，clock rate就是每个时钟周期所花的时间。在一台机器上进行测试的时候，这两个的值是比较稳定的，所以测试结果也是比较稳定的。但是将指令总数作为衡量标准是存在一定问题的，因为更短的指令总数并不总是意味着更好的性能。对于静态指令总数来说，因为循环的存在，某几条指令可能会实际运行很多遍。而对于动态指令总数来说，虽然没有上述的问题，但是每条指令的开销并不是一样的。很多条小开销的指令的总开销可能要比一条开销很大的指令的总开销要少。
+![image-20231218122142959](E:\github仓库\软件系统优化\images\image-20231218122142959.png)
+
+这是Iron Law of Processor Performance。可以看到，指令数对应的是上面三个因子当中的第一个因子，而忽视了剩下的因子。但是换个角度来看，后两个因子是和硬件相关的，所以使用指令数可以更集中在程序本身上，而不是兼顾硬件。而且，如果是静态指令的话，那我们不运行程序就能得到大致的性能了。
+
+但是将指令数作为衡量标准是存在一定问题的，因为更短的指令总数并不总是意味着更好的性能。对于静态指令总数来说，因为循环的存在，某几条指令可能会实际运行很多遍。而对于动态指令总数来说，虽然没有上述的问题，但是每条指令的开销并不是一样的。很多条小开销的指令的总开销可能要比一条开销很大的指令的总开销要少。
 
 Write-up 2
 ----------
@@ -480,20 +484,20 @@ Write-up 6
 ```c
 static void merge_m(data_t* A, int p, int q, int r) {
   assert(A);
-  assert(p &lt;= q);
-  assert((q + 1) &lt;= r);
+  assert(p <= q);
+  assert((q + 1) <= r);
   int n1 = q - p + 1;
   int n2 = r - q;
 
   data_t* left = 0, * right = A + q + 1;
-  mem_alloc(&amp;left, n1 + 1);
+  mem_alloc(&left, n1 + 1);
   if (left == NULL) {
-    mem_free(&amp;left);
+    mem_free(&left);
     return;
   }
   
-  //copy_p(&amp;(A[p]), left, n1);
-  //copy_p(&amp;(A[q + 1]), right, n2);
+  //copy_p(&(A[p]), left, n1);
+  //copy_p(&(A[q + 1]), right, n2);
   
   copy_m(A + p, left, n1);
   left[n1] = UINT_MAX;
@@ -503,8 +507,8 @@ static void merge_m(data_t* A, int p, int q, int r) {
   int i = 0;
   int j = 0;
 
-  for (int k = p; k &lt;= r; k++) {
-    if (left[i] &lt;= right[j]) {
+  for (int k = p; k <= r; k++) {
+    if (left[i] <= right[j]) {
       A[k] = left[i];
       i++;
     } else {
@@ -512,7 +516,7 @@ static void merge_m(data_t* A, int p, int q, int r) {
       j++;
     }
   }
-  mem_free(&amp;left);
+  mem_free(&left);
   right[n2] = tmp;
 }
 ```
@@ -535,8 +539,8 @@ sort\_m.c中，内存空间的释放与分配都是在merge当中的，而merge�
 ```c
 void do_sort(data_t* A, int p, int r, data_t* buffer) {
   int threshold = 32; // 8 16 32 64 remain to be tested
-  if (p &lt; r) {
-    if ((r - p) &lt;= threshold) {
+  if (p < r) {
+    if ((r - p) <= threshold) {
     	isort(A + p, A + r);
     	return;
     }
@@ -550,26 +554,26 @@ void do_sort(data_t* A, int p, int r, data_t* buffer) {
 void sort_f(data_t* A, int p, int r) {
   assert(A);
   data_t* buffer = 0;
-  mem_alloc(&amp;buffer, (r - p) / 2 + 2);
+  mem_alloc(&buffer, (r - p) / 2 + 2);
   if (buffer == NULL) {
-    mem_free(&amp;buffer);
+    mem_free(&buffer);
     return;
   }
   do_sort(A, p, r, buffer);
-  mem_free(&amp;buffer);
+  mem_free(&buffer);
 }
 
 static void merge_f(data_t* A, int p, int q, int r, data_t* buffer) {
   assert(A);
-  assert(p &lt;= q);
-  assert((q + 1) &lt;= r);
+  assert(p <= q);
+  assert((q + 1) <= r);
   int n1 = q - p + 1;
   int n2 = r - q;
 
   data_t* right = A + q + 1;
   
-  //copy_p(&amp;(A[p]), left, n1);
-  //copy_p(&amp;(A[q + 1]), right, n2);
+  //copy_p(&(A[p]), left, n1);
+  //copy_p(&(A[q + 1]), right, n2);
   
   copy_f(A + p, buffer, n1);
   buffer[n1] = UINT_MAX;
@@ -579,8 +583,8 @@ static void merge_f(data_t* A, int p, int q, int r, data_t* buffer) {
   int i = 0;
   int j = 0;
 
-  for (int k = p; k &lt;= r; k++) {
-    if (buffer[i] &lt;= right[j]) {
+  for (int k = p; k <= r; k++) {
+    if (buffer[i] <= right[j]) {
       A[k] = buffer[i];
       i++;
     } else {
