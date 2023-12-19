@@ -22,18 +22,18 @@ int col = index.get_group(1) * block_size + index.get_local_id(1);
 
 **修改程序输入数据的大小，设定非M=N=K=2000，修改程序，并使其通过正确性测试**
 
-虽然我平时写C++比较多，但是对于并行计算这方面是基本不了解的，所以我想先来解释下代码：
+我想先来解释下代码：
 
 ```cpp
   auto grid_rows = (M + block_size - 1) / block_size * block_size;
   auto grid_cols = (N + block_size - 1) / block_size * block_size;
-  auto local_ndrange  = range&lt;2&gt;(block_size, block_size);
-  auto global_ndrange = range&lt;2&gt;(grid_rows, grid_cols);
+  auto local_ndrange  = range<2>(block_size, block_size);
+  auto global_ndrange = range<2>(grid_rows, grid_cols);
 
   double duration = 0.0f;
-  auto e = q.submit([&amp;](sycl::handler &amp;h) {
+  auto e = q.submit([&](sycl::handler &h) {
       h.parallel_for<class k_name_t="">(
-          sycl::nd_range&lt;2&gt;(global_ndrange, local_ndrange), [=](sycl::nd_item&lt;2&gt; index) {
+          sycl::nd_range<2>(global_ndrange, local_ndrange), [=](sycl::nd_item<2> index) {
 
               // int row = index.get_global_id(0);
               int row = index.get_group(0) * block_size + index.get_local_id(0);
@@ -42,7 +42,7 @@ int col = index.get_group(1) * block_size + index.get_local_id(1);
               
               float sum = 0.0f;
 
-              for (int i = 0; i &lt; K; i++) {
+              for (int i = 0; i < K; i++) {
                 sum += A[row * K + i] * B[i * N  + col];
               }
               C[row * N + col] = sum;
@@ -139,11 +139,11 @@ gemm_basic.cpp:154:9: warning: 'queue' is deprecated: SYCL 1.2.1 device selector
 
 报错的意思是没有我们所要求的设备。我查了很久解决方法，参考了官方文档：[Job Submission | Intel® DevCloud](https://devcloud.intel.com/oneapi/documentation/job-submission/)，才找到了解决方法。我这里的问题在于原因我所处的节点是没有GPU的。应该用qsub命令，把作业写成一个shell脚本。然后再把作业提交给排队系统，排队系统会自动指派符合要求的节点，也就是那些有GPU的节点，来完成作业。最后，输出的结果会被传回到本地节点。
 
-来看看我写的run.sh:
+run.sh如下:
 
 ```shell
 #!/bin/bash
-source /opt/intel/oneapi/setvars.sh &gt; /dev/null 2&gt;&amp;1
+source /opt/intel/oneapi/setvars.sh > /dev/null 2>&1
 dpcpp gemm_basic.cpp -o gemm_basic
 if [ $? -eq 0 ]; then ./gemm_basic; fi
 ```
@@ -185,7 +185,7 @@ source /opt/intel/oneapi/setvars.sh是用来配置环境变量的，而 > /dev/n
 
 ```cpp
   errCode = verify(C_host, C, M*N);
-  if(errCode &gt; 0) printf("\nThere are %d errors\n", errCode);
+  if(errCode > 0) printf("\nThere are %d errors\n", errCode);
 ```
 
 errcode=0的时候就是verify没问题的时候，而只有errcode>0才会输出上面的语句。也就是说，只要没有输出上面的语句，verify就是没问题的。
@@ -197,19 +197,24 @@ errcode=0的时候就是verify没问题的时候，而只有errcode>0才会输�
   auto grid_cols = (N + block_size - 1) / block_size * block_size;
 ```
 
-上面代码的作用是确保grid\_rows是blcok\_size的倍数。如果M是block\_size的整数倍，那么第一行等号右边的式子实际上就是M，而如果M不是block\_size的整数倍，这个计算将向上取整到最接近的blcok\_size的倍数。N的情况是类似的。下面我就通过测试代码来验证下：
-
-```cpp
-#include <iostream>
-
-int main() {
-    int M, N, block_size;
-    std::cin&gt;&gt;M&gt;&gt;N&gt;&gt;block_size;
-    auto grid_rows = (M + block_size - 1) / block_size * block_size;
-    auto grid_cols = (N + block_size - 1) / block_size * block_size;
-    std::cout&lt;</iostream>```
-```
+上面代码的作用是确保grid\_rows是blcok\_size的倍数。如果M是block\_size的整数倍，那么第一行等号右边的式子实际上就是M，而如果M不是block\_size的整数倍，这个计算将向上取整到最接近的blcok\_size的倍数。N的情况是类似的。我的测试代码在test.cpp当中，输出结果如下：
 
 ![GVy0pUcBlJ9inv1kd1rmu4JF5TKPP0ahEVMtJtlHAcA=](images/GVy0pUcBlJ9inv1kd1rmu4JF5TKPP0ahEVMtJtlHAcA=.png)
 
 实验的结果与我们的分析是一致的。因为这里的特殊处理，我直接将1024改成2000也能运行成功。
+
+以上是助教在群里提醒之前写的，我只修改了一些输出为mardown时候的错误。不过在助教提醒后，我又思考了一下。因为经过前面的测试，发现grid_rows和grid_cols若不能整除，是必须要向上取整的。这就可能会引发越界的问题。当然，因为代码中的矩阵乘法是通过一维数组实现的，所以还会发生覆盖的问题，也就是说问题出在这一行：
+
+```python
+C[row * N + col] = sum;
+```
+
+一旦row超过了范围，那么就会引发越界的问题；一旦col超过了范围，那就会引发覆盖的问题。
+
+所以我们在获得row和col之后再进行下特判就好了：
+
+```python
+              if (row >= M) row = M - 1;
+              if (col >= N) col = N - 1;
+```
+

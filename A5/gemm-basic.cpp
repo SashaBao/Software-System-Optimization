@@ -28,6 +28,9 @@ double gpu_kernel(float *A, float *B, float *C, int M, int N, int K, int block_s
               // int col = index.get_global_id(1);
               int col = index.get_group(1) * block_size + index.get_local_id(1);
               
+              if (row >= M) row = M - 1;
+              if (col >= N) col = N - 1;
+              
               float sum = 0.0f;
 
               for (int i = 0; i < K; i++) {
